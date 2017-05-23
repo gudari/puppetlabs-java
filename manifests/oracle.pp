@@ -86,14 +86,16 @@
 # mike@marseglia.org
 #
 define java::oracle (
-  $ensure        = 'present',
-  $version       = '8',
-  $version_major = undef,
-  $version_minor = undef,
-  $java_se       = 'jdk',
-  $oracle_url    = 'http://download.oracle.com/otn-pub/java/jdk/',
-  $proxy_server  = undef,
-  $proxy_type    = undef,
+  $ensure              = 'present',
+  $version             = '8',
+  $version_major       = undef,
+  $version_minor       = undef,
+  $java_se             = 'jdk',
+  $oracle_url          = 'http://download.oracle.com/otn-pub/java/jdk/',
+  $proxy_server        = undef,
+  $proxy_type          = undef,
+  $custom_package_name = undef,
+  $custom_url          = undef,
 ) {
 
   # archive module is used to download the java package
@@ -101,98 +103,102 @@ define java::oracle (
 
   ensure_resource('class', 'stdlib')
 
-  # validate java Standard Edition to download
-  if $java_se !~ /(jre|jdk)/ {
-    fail('Java SE must be either jre or jdk.')
-  }
-
-  # determine Oracle Java major and minor version, and installation path
-  if $version_major and $version_minor {
-    $release_major = $version_major
-    $release_minor = $version_minor
-    if $release_major =~ /(\d+)u(\d+)/ {
-      $install_path = "${java_se}1.${1}.0_${2}"
-    } else {
-      $install_path = "${java_se}${release_major}${release_minor}"
-    }
+  if $custom_package_name {
+    $package_name = $custom_package_name
   } else {
-    # use default versions if no specific major and minor version parameters are provided
-    case $version {
-      '6' : {
-        $release_major = '6u45'
-        $release_minor = 'b06'
-        $install_path = "${java_se}1.6.0_45"
-      }
-      '7' : {
-        $release_major = '7u80'
-        $release_minor = 'b15'
-        $install_path = "${java_se}1.7.0_80"
-      }
-      '8' : {
-        $release_major = '8u51'
-        $release_minor = 'b16'
-        $install_path = "${java_se}1.8.0_51"
-      }
-      default : {
-        $release_major = '8u51'
-        $release_minor = 'b16'
-        $install_path = "${java_se}1.8.0_51"
-      }
+    # validate java Standard Edition to download
+    if $java_se !~ /(jre|jdk)/ {
+      fail('Java SE must be either jre or jdk.')
     }
-  }
 
-  # determine package type (exe/tar/rpm), destination directory based on OS
-  case $::kernel {
-    'Linux' : {
-      case $::osfamily {
-        'RedHat', 'Amazon' : {
-          # Oracle Java 6 comes in a special rpmbin format
-          if $version == '6' {
-            $package_type = 'rpmbin'
-          } else {
-            $package_type = 'rpm'
-          }
+    # determine Oracle Java major and minor version, and installation path
+    if $version_major and $version_minor {
+      $release_major = $version_major
+      $release_minor = $version_minor
+      if $release_major =~ /(\d+)u(\d+)/ {
+        $install_path = "${java_se}1.${1}.0_${2}"
+      } else {
+        $install_path = "${java_se}${release_major}${release_minor}"
+      }
+    } else {
+      # use default versions if no specific major and minor version parameters are provided
+      case $version {
+        '6' : {
+          $release_major = '6u45'
+          $release_minor = 'b06'
+          $install_path = "${java_se}1.6.0_45"
+        }
+        '7' : {
+          $release_major = '7u80'
+          $release_minor = 'b15'
+          $install_path = "${java_se}1.7.0_80"
+        }
+        '8' : {
+          $release_major = '8u51'
+          $release_minor = 'b16'
+          $install_path = "${java_se}1.8.0_51"
         }
         default : {
-          fail ("unsupported platform ${::operatingsystem}") }
+          $release_major = '8u51'
+          $release_minor = 'b16'
+          $install_path = "${java_se}1.8.0_51"
+        }
       }
+    }
 
-      $os = 'linux'
-      $destination_dir = '/tmp/'
-      $creates_path = "/usr/java/${install_path}"
-    }
-    default : {
-      fail ( "unsupported platform ${::kernel}" ) }
-  }
+    # determine package type (exe/tar/rpm), destination directory based on OS
+    case $::kernel {
+      'Linux' : {
+        case $::osfamily {
+          'RedHat', 'Amazon' : {
+            # Oracle Java 6 comes in a special rpmbin format
+            if $version == '6' {
+              $package_type = 'rpmbin'
+            } else {
+              $package_type = 'rpm'
+            }
+          }
+          default : {
+            fail ("unsupported platform ${::operatingsystem}") }
+        }
 
-  # set java architecture nomenclature
-  case $::architecture {
-    'i386' : { $arch = 'i586' }
-    'x86_64' : { $arch = 'x64' }
-    default : {
-      fail ("unsupported platform ${::architecture}")
+        $os = 'linux'
+        $destination_dir = '/tmp/'
+        $creates_path = "/usr/java/${install_path}"
+        }
+      default : {
+        fail ( "unsupported platform ${::kernel}" ) }
     }
-  }
 
-  # following are based on this example:
-  # http://download.oracle.com/otn/java/jdk/7u80-b15/jre-7u80-linux-i586.rpm
-  #
-  # JaveSE 6 distributed in .bin format
-  # http://download.oracle.com/otn/java/jdk/6u45-b06/jdk-6u45-linux-i586-rpm.bin
-  # http://download.oracle.com/otn/java/jdk/6u45-b06/jdk-6u45-linux-i586.bin
-  # package name to download from Oracle's website
-  case $package_type {
-    'bin' : {
-      $package_name = "${java_se}-${release_major}-${os}-${arch}.bin"
+    # set java architecture nomenclature
+    case $::architecture {
+      'i386' : { $arch = 'i586' }
+      'x86_64' : { $arch = 'x64' }
+      default : {
+        fail ("unsupported platform ${::architecture}")
+      }
     }
-    'rpmbin' : {
-      $package_name = "${java_se}-${release_major}-${os}-${arch}-rpm.bin"
-    }
-    'rpm' : {
-      $package_name = "${java_se}-${release_major}-${os}-${arch}.rpm"
-    }
-    default : {
-      $package_name = "${java_se}-${release_major}-${os}-${arch}.rpm"
+
+    # following are based on this example:
+    # http://download.oracle.com/otn/java/jdk/7u80-b15/jre-7u80-linux-i586.rpm
+    #
+    # JaveSE 6 distributed in .bin format
+    # http://download.oracle.com/otn/java/jdk/6u45-b06/jdk-6u45-linux-i586-rpm.bin
+    # http://download.oracle.com/otn/java/jdk/6u45-b06/jdk-6u45-linux-i586.bin
+    # package name to download from Oracle's website
+    case $package_type {
+      'bin' : {
+        $package_name = "${java_se}-${release_major}-${os}-${arch}.bin"
+      }
+      'rpmbin' : {
+        $package_name = "${java_se}-${release_major}-${os}-${arch}-rpm.bin"
+      }
+      'rpm' : {
+        $package_name = "${java_se}-${release_major}-${os}-${arch}.rpm"
+      }
+      default : {
+        $package_name = "${java_se}-${release_major}-${os}-${arch}.rpm"
+      }
     }
   }
 
@@ -215,11 +221,17 @@ define java::oracle (
     }
   }
 
+  if $custom_url {
+    $source = "${custom_url}/${package_name}"
+  } else {
+    $source = "${oracle_url}${release_major}-${release_minor}/${package_name}"
+  }
+
   case $ensure {
     'present' : {
       archive { $destination :
         ensure       => present,
-        source       => "${oracle_url}${release_major}-${release_minor}/${package_name}",
+        source       => $source,
         cookie       => 'gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie',
         extract_path => '/tmp',
         cleanup      => false,
