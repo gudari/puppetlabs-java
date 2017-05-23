@@ -99,7 +99,7 @@ define java::oracle (
 ) {
 
   # archive module is used to download the java package
-  include ::archive
+  #include ::archive
 
   ensure_resource('class', 'stdlib')
 
